@@ -25,6 +25,7 @@ import {
   NATIVE_WORKSPACE_TAB_SLOTS,
   workspaceTabForNativeSlot,
   workspaceUsesColumns,
+  type WorkspaceTab,
 } from "./workspace-tabs-state";
 import {
   NativeWorkspaceTabActivityContext,
@@ -46,6 +47,7 @@ const PULL_REQUEST_ICON = require("../../../../assets/icons/pull-request.png");
 /** Retain each native controller tree; removing its root can leave RNS's stack empty. */
 function RetainedWorkspaceTab(props: {
   readonly slot: string;
+  readonly tab: WorkspaceTab;
   readonly active: boolean;
   readonly setMountedSlots: Dispatch<SetStateAction<ReadonlySet<string>>>;
   readonly children: ReactNode;
@@ -58,8 +60,9 @@ function RetainedWorkspaceTab(props: {
     activeRef.current = props.active;
   }, [props.active]);
   const isActive = () => activeRef.current;
+  // SPIKE: every slot counts as active so its header options apply while hidden.
   const activity = {
-    active: props.active,
+    active: true,
     isActive,
   };
   const [optionsByRoute, setOptionsByRoute] = useState<ReadonlyMap<string, object>>(new Map());
@@ -69,8 +72,18 @@ function RetainedWorkspaceTab(props: {
       new Map(current).set(routeKey, { ...current.get(routeKey), ...options }),
     );
   const slotOptions = { byRoute: optionsByRoute, set: setRouteOptions };
-  const [content, setContent] = useState(
-    props.active ? { workspace, children: props.children } : null,
+  // SPIKE: mount every slot at launch with its own tab selected.
+  const [content, setContent] = useState(() =>
+    props.active
+      ? { workspace, children: props.children }
+      : {
+          workspace: {
+            ...workspace,
+            settingsOpen: props.slot === "settings",
+            state: { ...workspace.state, selectedTab: props.tab },
+          },
+          children: props.children,
+        },
   );
   if (props.active && (content?.workspace !== workspace || content?.children !== props.children))
     setContent({ workspace, children: props.children });
@@ -187,6 +200,7 @@ export function WorkspaceNativeTabs(props: {
             >
               <RetainedWorkspaceTab
                 slot={slot}
+                tab={tab}
                 setMountedSlots={setMountedSlots}
                 active={settings ? selectedSlot === -1 : selectedSlot === index}
               >
